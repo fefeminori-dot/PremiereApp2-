@@ -123,6 +123,7 @@
   .install-sheet .btn-primary { margin-top: 16px; }
 
   .home-header {
+    position: relative;
     padding: calc(env(safe-area-inset-top) + 20px) 24px 16px;
     text-align: center;
   }
@@ -136,6 +137,64 @@
     font-size: 38px;
     margin: 6px 0 0;
   }
+
+  /* ---------- ICONA CONTATTI (home) ---------- */
+  .contacts-btn {
+    position: absolute;
+    top: calc(env(safe-area-inset-top) + 20px);
+    right: 20px;
+    width: 38px; height: 38px;
+    border-radius: 50%;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-size: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .contacts-sheet-overlay {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.6);
+    z-index: 200;
+    align-items: flex-end;
+    justify-content: center;
+  }
+  .contacts-sheet-overlay.visible { display: flex; }
+  .contacts-sheet {
+    background: var(--surface);
+    border-radius: 18px 18px 0 0;
+    padding: 22px 22px calc(env(safe-area-inset-bottom) + 22px);
+    max-width: 560px;
+    width: 100%;
+    border-top: 1px solid var(--border);
+  }
+  .contacts-sheet h3 { margin: 0 0 16px; font-size: 18px; }
+  .contact-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 13px 0;
+    border-bottom: 1px solid var(--border);
+    text-decoration: none;
+    color: var(--text);
+  }
+  .contact-row:last-of-type { border-bottom: none; }
+  .contact-row .contact-icon {
+    width: 36px; height: 36px;
+    border-radius: 10px;
+    background: var(--surface-2);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 17px;
+    flex-shrink: 0;
+  }
+  .contact-row .contact-label { font-size: 11px; color: var(--text-dim); margin: 0; }
+  .contact-row .contact-value { font-size: 15px; margin: 1px 0 0; font-weight: 500; }
+  .contacts-sheet .btn-primary { margin-top: 16px; }
 
   .brand-list {
     display: flex;
@@ -243,6 +302,46 @@
   .product-card .name, .slot-card .name { font-size: 17px; font-weight: 600; margin: 0 0 4px; }
   .product-card .meta, .slot-card .meta { color: var(--text-dim); font-size: 14px; margin: 0 0 12px; }
 
+  /* ---------- VALUTAZIONE "PS" (al posto delle stelline) ---------- */
+  .rating-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 10px 0 12px;
+  }
+  .rating-ps {
+    width: 26px; height: 26px;
+    border-radius: 7px;
+    border: 1.5px solid var(--border);
+    background: var(--surface-2);
+    color: var(--text-dim);
+    font-size: 11px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition: all 0.12s ease;
+  }
+  .rating-ps.filled {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #15130a;
+  }
+  .rating-summary {
+    font-size: 12px;
+    color: var(--text-dim);
+    margin-left: 4px;
+  }
+  .rating-thanks {
+    font-size: 12px;
+    color: var(--accent);
+    margin-left: 4px;
+    display: none;
+  }
+  .rating-thanks.visible { display: inline; }
+
   .qty-row { display: flex; align-items: center; gap: 12px; }
   .qty-btn {
     width: 34px; height: 34px;
@@ -344,6 +443,7 @@
   <!-- HOME: selezione brand -->
   <div id="home-screen">
     <div class="home-header">
+      <button class="contacts-btn" id="contacts-btn">✉️</button>
       <div class="eyebrow">Benvenuto</div>
       <h1 class="display">PREMIERE</h1>
     </div>
@@ -353,6 +453,15 @@
   <!-- Le schermate negozio vengono generate dinamicamente in JS -->
   <div id="negozi-container"></div>
 
+</div>
+
+<!-- Foglio contatti -->
+<div class="contacts-sheet-overlay" id="contacts-sheet-overlay">
+  <div class="contacts-sheet">
+    <h3 class="display">Contattaci</h3>
+    <div id="contacts-list"></div>
+    <button class="btn-primary" id="contacts-sheet-close">Chiudi</button>
+  </div>
 </div>
 
 <!-- Foglio con le istruzioni passo-passo per installare su iOS -->
@@ -453,6 +562,67 @@ async function avvia() {
 
     creaSchermataNegozio(id, info);
   }
+
+  popolaContatti();
+}
+
+// ---------------------------------------------------------------
+// CONTATTI: popup con i contatti di ciascun brand
+// ---------------------------------------------------------------
+function popolaContatti() {
+  const lista = document.getElementById("contacts-list");
+  lista.innerHTML = "";
+
+  for (const [id, info] of Object.entries(NEGOZI)) {
+    const c = info.contatti || {};
+    const blocco = document.createElement("div");
+    blocco.style.marginBottom = "8px";
+
+    const titolo = document.createElement("p");
+    titolo.style.fontSize = "12px";
+    titolo.style.color = "var(--text-dim)";
+    titolo.style.letterSpacing = "0.05em";
+    titolo.style.textTransform = "uppercase";
+    titolo.style.margin = "16px 0 4px";
+    titolo.textContent = info.nome_visualizzato;
+    blocco.appendChild(titolo);
+
+    if (c.email) {
+      blocco.innerHTML += `
+        <a class="contact-row" href="mailto:${c.email}">
+          <div class="contact-icon">✉️</div>
+          <div><p class="contact-label">Email</p><p class="contact-value">${c.email}</p></div>
+        </a>`;
+    }
+    if (c.telefono) {
+      blocco.innerHTML += `
+        <a class="contact-row" href="tel:${c.telefono}">
+          <div class="contact-icon">📞</div>
+          <div><p class="contact-label">Telefono</p><p class="contact-value">${c.telefono}</p></div>
+        </a>`;
+    }
+    if (c.instagram) {
+      blocco.innerHTML += `
+        <a class="contact-row" href="${c.instagram}" target="_blank" rel="noopener">
+          <div class="contact-icon">📷</div>
+          <div><p class="contact-label">Instagram</p><p class="contact-value">Apri profilo</p></div>
+        </a>`;
+    }
+
+    lista.appendChild(blocco);
+  }
+
+  document.getElementById("contacts-btn").addEventListener("click", () => {
+    document.getElementById("contacts-sheet-overlay").classList.add("visible");
+  });
+  document.getElementById("contacts-sheet-close").addEventListener("click", () => {
+    document.getElementById("contacts-sheet-overlay").classList.remove("visible");
+  });
+  document.getElementById("contacts-sheet-overlay").addEventListener("click", (e) => {
+    if (e.target.id === "contacts-sheet-overlay") {
+      e.currentTarget.classList.remove("visible");
+    }
+  });
 }
 
 // ---------------------------------------------------------------
@@ -556,9 +726,23 @@ async function caricaStore(negozioId) {
     const qty = carrelli[negozioId][p.id] || 0;
     const card = document.createElement("div");
     card.className = "product-card";
+
+    const mediaTesto = p.voto_medio !== null && p.voto_medio !== undefined
+      ? `${p.voto_medio.toFixed(1)} (${p.numero_voti})`
+      : "Nessuna valutazione";
+
+    let ratingHtml = '<div class="rating-row">';
+    for (let i = 1; i <= 5; i++) {
+      ratingHtml += `<button class="rating-ps" data-voto="${i}">PS</button>`;
+    }
+    ratingHtml += `<span class="rating-summary">${mediaTesto}</span>`;
+    ratingHtml += `<span class="rating-thanks">Grazie!</span>`;
+    ratingHtml += `</div>`;
+
     card.innerHTML = `
       <div class="name">${p.nome}</div>
       <div class="meta">EUR ${p.prezzo.toFixed(2)} · ${p.quantita_disponibile} disponibili</div>
+      ${ratingHtml}
       <div class="qty-row">
         <button class="qty-btn" data-action="meno">−</button>
         <span class="qty-value">${qty}</span>
@@ -567,10 +751,30 @@ async function caricaStore(negozioId) {
     `;
     card.querySelector('[data-action="meno"]').addEventListener("click", () => cambiaCarrello(negozioId, p.id, -1, p.quantita_disponibile, card));
     card.querySelector('[data-action="piu"]').addEventListener("click", () => cambiaCarrello(negozioId, p.id, 1, p.quantita_disponibile, card));
+
+    card.querySelectorAll(".rating-ps").forEach(btn => {
+      btn.addEventListener("click", () => votaProdotto(p.id, parseInt(btn.dataset.voto), card));
+    });
+
     el.appendChild(card);
   });
 
   aggiornaCartBar(negozioId);
+}
+
+async function votaProdotto(prodottoId, voto, cardEl) {
+  // Evidenzia subito i quadrati PS fino al voto scelto (feedback immediato)
+  cardEl.querySelectorAll(".rating-ps").forEach(btn => {
+    btn.classList.toggle("filled", parseInt(btn.dataset.voto) <= voto);
+    btn.disabled = true;
+  });
+  cardEl.querySelector(".rating-thanks").classList.add("visible");
+
+  try {
+    await apiPost(`/prodotti/${prodottoId}/vota`, { voto });
+  } catch (e) {
+    mostraToast("Non è stato possibile registrare il voto");
+  }
 }
 
 function cambiaCarrello(negozioId, prodottoId, delta, maxDisponibile, cardEl) {
