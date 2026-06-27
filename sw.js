@@ -15,7 +15,7 @@
 // hanno già installato l'app a scaricare la cache fresca, invece di
 // restare bloccati su una versione vecchia anche in caso di problemi di
 // rete temporanei.
-const CACHE_NAME = "premiere-v3";
+const CACHE_NAME = "premiere-v4";
 const FILES_DA_CACHARE = [
   "./index.html",
   "./manifest.json"

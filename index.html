@@ -342,6 +342,68 @@
   }
   .rating-thanks.visible { display: inline; }
 
+  /* ---------- PORTFOLIO ---------- */
+  .portfolio-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  .portfolio-item {
+    border-radius: var(--radius);
+    overflow: hidden;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .portfolio-item img {
+    width: 100%;
+    aspect-ratio: 1;
+    object-fit: cover;
+    display: block;
+  }
+  .portfolio-item .portfolio-caption {
+    padding: 8px 10px;
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+
+  .portfolio-viewer-overlay {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.92);
+    z-index: 300;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    padding: 20px;
+  }
+  .portfolio-viewer-overlay.visible { display: flex; }
+  .portfolio-viewer-overlay img {
+    max-width: 100%;
+    max-height: 75vh;
+    object-fit: contain;
+    border-radius: 10px;
+  }
+  .portfolio-viewer-overlay .viewer-caption {
+    color: var(--text);
+    text-align: center;
+    margin-top: 14px;
+    font-size: 14px;
+  }
+  .portfolio-viewer-overlay .viewer-close {
+    position: absolute;
+    top: calc(env(safe-area-inset-top) + 16px);
+    right: 20px;
+    background: rgba(255,255,255,0.1);
+    border: none;
+    color: var(--text);
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    font-size: 18px;
+    cursor: pointer;
+  }
+
   .qty-row { display: flex; align-items: center; gap: 12px; }
   .qty-btn {
     width: 34px; height: 34px;
@@ -489,6 +551,13 @@
 
 <div class="toast" id="toast"></div>
 
+<!-- Visualizzatore immagine portfolio a schermo intero -->
+<div class="portfolio-viewer-overlay" id="portfolio-viewer-overlay">
+  <button class="viewer-close" id="portfolio-viewer-close">✕</button>
+  <img id="portfolio-viewer-img" src="" alt="">
+  <div class="viewer-caption" id="portfolio-viewer-caption"></div>
+</div>
+
 
 <script>
 const API_BASE = "https://premierapp.onrender.com";
@@ -500,8 +569,8 @@ const ACCENTI = {
   glintgrillz: "var(--glintgrillz)"
 };
 
-const ICONE_TAB = { store: "🛍️", eventi: "🎟️", laboratorio: "🛠️" };
-const ETICHETTE_TAB = { store: "Store", eventi: "Eventi", laboratorio: "Laboratorio" };
+const ICONE_TAB = { store: "🛍️", eventi: "🎟️", laboratorio: "🛠️", portfolio: "🖼️" };
+const ETICHETTE_TAB = { store: "Store", eventi: "Eventi", laboratorio: "Laboratorio", portfolio: "Portfolio" };
 
 let NEGOZI = {};
 let carrelli = {}; // { negozio_id: { prodotto_id: quantita } }
@@ -716,6 +785,7 @@ async function caricaSezione(negozioId, sezione) {
   if (sezione === "store") return caricaStore(negozioId);
   if (sezione === "eventi") return caricaSlot(negozioId, "eventi");
   if (sezione === "laboratorio") return caricaSlot(negozioId, "laboratorio");
+  if (sezione === "portfolio") return caricaPortfolio(negozioId);
 }
 
 // ---------- STORE ----------
@@ -896,6 +966,58 @@ async function prenotaSlot(negozioId, tipo, slotId, nome, numeroPosti) {
     mostraToast(e.errore || "Prenotazione non riuscita");
   }
 }
+
+// ---------- PORTFOLIO ----------
+async function caricaPortfolio(negozioId) {
+  const el = document.getElementById(`section-${negozioId}-portfolio`);
+  el.innerHTML = '<div class="empty-state">Caricamento…</div>';
+
+  let immagini;
+  try {
+    immagini = await apiGet(`/${negozioId}/portfolio`);
+  } catch (e) {
+    el.innerHTML = '<div class="empty-state">Errore nel caricare il portfolio.</div>';
+    return;
+  }
+
+  if (immagini.length === 0) {
+    el.innerHTML = '<div class="empty-state">Nessuna immagine nel portfolio, per ora.</div>';
+    return;
+  }
+
+  const grid = document.createElement("div");
+  grid.className = "portfolio-grid";
+
+  immagini.forEach(img => {
+    const item = document.createElement("div");
+    item.className = "portfolio-item";
+    item.innerHTML = `
+      <img src="${img.url_immagine}" alt="${img.titolo || ''}" loading="lazy">
+      ${img.titolo ? `<div class="portfolio-caption">${img.titolo}</div>` : ""}
+    `;
+    item.addEventListener("click", () => apriVisualizzatorePortfolio(img));
+    grid.appendChild(item);
+  });
+
+  el.innerHTML = "";
+  el.appendChild(grid);
+}
+
+function apriVisualizzatorePortfolio(img) {
+  document.getElementById("portfolio-viewer-img").src = img.url_immagine;
+  document.getElementById("portfolio-viewer-caption").textContent =
+    [img.titolo, img.descrizione].filter(Boolean).join(" — ");
+  document.getElementById("portfolio-viewer-overlay").classList.add("visible");
+}
+
+document.getElementById("portfolio-viewer-close").addEventListener("click", () => {
+  document.getElementById("portfolio-viewer-overlay").classList.remove("visible");
+});
+document.getElementById("portfolio-viewer-overlay").addEventListener("click", (e) => {
+  if (e.target.id === "portfolio-viewer-overlay") {
+    e.currentTarget.classList.remove("visible");
+  }
+});
 
 // ---------------------------------------------------------------
 // BANNER DI INSTALLAZIONE
