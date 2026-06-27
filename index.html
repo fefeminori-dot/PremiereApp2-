@@ -506,6 +506,22 @@ const ETICHETTE_TAB = { store: "Store", eventi: "Eventi", laboratorio: "Laborato
 let NEGOZI = {};
 let carrelli = {}; // { negozio_id: { prodotto_id: quantita } }
 
+// ---------------------------------------------------------------
+// IDENTIFICATIVO DISPOSITIVO
+// Un codice casuale, generato una sola volta e salvato sul telefono,
+// usato solo per riconoscere "questo stesso dispositivo ha già votato
+// questo prodotto" e permettere di cambiare il voto. Non contiene alcuna
+// informazione personale: è solo una stringa casuale senza significato.
+// ---------------------------------------------------------------
+function getIdDispositivo() {
+  let id = localStorage_safeGet("premiere_id_dispositivo");
+  if (!id) {
+    id = "dev_" + Math.random().toString(36).slice(2) + Date.now().toString(36);
+    localStorage_safeSet("premiere_id_dispositivo", id);
+  }
+  return id;
+}
+
 async function apiGet(path) {
   const r = await fetch(API_BASE + path);
   if (!r.ok) throw await r.json().catch(() => ({errore: "Errore di rete"}));
@@ -709,7 +725,8 @@ async function caricaStore(negozioId) {
 
   let prodotti;
   try {
-    prodotti = await apiGet(`/${negozioId}/prodotti`);
+    const idDispositivo = getIdDispositivo();
+    prodotti = await apiGet(`/${negozioId}/prodotti?id_dispositivo=${encodeURIComponent(idDispositivo)}`);
   } catch (e) {
     el.innerHTML = '<div class="empty-state">Errore nel caricare i prodotti.</div>';
     return;
@@ -731,12 +748,15 @@ async function caricaStore(negozioId) {
       ? `${p.voto_medio.toFixed(1)} (${p.numero_voti})`
       : "Nessuna valutazione";
 
+    const votoUtente = p.voto_utente || 0;
+
     let ratingHtml = '<div class="rating-row">';
     for (let i = 1; i <= 5; i++) {
-      ratingHtml += `<button class="rating-ps" data-voto="${i}">PS</button>`;
+      const filled = i <= votoUtente ? "filled" : "";
+      ratingHtml += `<button class="rating-ps ${filled}" data-voto="${i}">PS</button>`;
     }
     ratingHtml += `<span class="rating-summary">${mediaTesto}</span>`;
-    ratingHtml += `<span class="rating-thanks">Grazie!</span>`;
+    ratingHtml += `<span class="rating-thanks">${votoUtente ? "Il tuo voto" : ""}</span>`;
     ratingHtml += `</div>`;
 
     card.innerHTML = `
@@ -763,15 +783,18 @@ async function caricaStore(negozioId) {
 }
 
 async function votaProdotto(prodottoId, voto, cardEl) {
-  // Evidenzia subito i quadrati PS fino al voto scelto (feedback immediato)
+  // Evidenzia subito i quadrati PS fino al voto scelto (feedback immediato).
+  // I pulsanti restano sempre cliccabili: il voto si può cambiare in
+  // qualsiasi momento, semplicemente toccando un altro numero.
   cardEl.querySelectorAll(".rating-ps").forEach(btn => {
     btn.classList.toggle("filled", parseInt(btn.dataset.voto) <= voto);
-    btn.disabled = true;
   });
-  cardEl.querySelector(".rating-thanks").classList.add("visible");
+  const thanksEl = cardEl.querySelector(".rating-thanks");
+  thanksEl.textContent = "Il tuo voto";
+  thanksEl.classList.add("visible");
 
   try {
-    await apiPost(`/prodotti/${prodottoId}/vota`, { voto });
+    await apiPost(`/prodotti/${prodottoId}/vota`, { voto, id_dispositivo: getIdDispositivo() });
   } catch (e) {
     mostraToast("Non è stato possibile registrare il voto");
   }
